@@ -103,8 +103,8 @@ The service runs on Cloud Run, builds from source with the included Dockerfile, 
 
 | Setting | Value |
 |---|---|
-| Project | `gen-lang-client-0928202266` |
-| Region | `us-west1` |
+| Project | `<project>` |
+| Region | `<region>` |
 | Service name | `teaching-assistant` |
 | Model location | `global` (set in `teaching_assistant/.env`) |
 | Secret | `teaching-assistant-password` (mounted as `APP_PASSWORD`) |
@@ -147,7 +147,7 @@ cd /Users/ramakrishnaseshadri/Documents/agentAI/Week5/google_adk_agent
 
 gcloud run deploy teaching-assistant \
   --source . \
-  --region us-west1 \
+  --region <region> \
   --allow-unauthenticated \
   --max-instances 2 \
   --set-secrets APP_PASSWORD=teaching-assistant-password:latest
@@ -158,7 +158,7 @@ gcloud run deploy teaching-assistant \
 ### Verify
 
 ```bash
-URL=$(gcloud run services describe teaching-assistant --region us-west1 --format='value(status.url)')
+URL=$(gcloud run services describe teaching-assistant --region <region> --format='value(status.url)')
 curl -s -o /dev/null -w "%{http_code}\n" $URL                    # 401
 curl -s -o /dev/null -w "%{http_code}\n" -u "student:$PW" $URL   # 200 or 307
 ```
@@ -169,14 +169,14 @@ Then open the URL in a browser and log in as `student`.
 
 ```bash
 # Logs
-gcloud run services logs read teaching-assistant --region us-west1
+gcloud run services logs read teaching-assistant --region <region>
 
 # Rotate the password, then restart so the service picks up `latest`
 printf '%s' "NEW_PASSWORD" | gcloud secrets versions add teaching-assistant-password --data-file=-
-gcloud run services update teaching-assistant --region us-west1 --update-env-vars=RESTARTED_AT=$(date +%s)
+gcloud run services update teaching-assistant --region <region> --update-env-vars=RESTARTED_AT=$(date +%s)
 
 # Tear down
-gcloud run services delete teaching-assistant --region us-west1
+gcloud run services delete teaching-assistant --region <region>
 gcloud secrets delete teaching-assistant-password
 ```
 
@@ -186,7 +186,6 @@ Sessions are stored in memory, so they are lost when an instance restarts or sca
 
 | Symptom | Cause and fix |
 |---|---|
-| `Provided service account (...-compute@developer.gserviceaccount.com) is disabled` during deploy | The default compute service account is disabled. Re-enable it with `gcloud iam service-accounts enable <SA>`, or create a dedicated service account and pass `--service-account` and `--build-service-account`. |
 | Agent missing from the `adk web` dropdown | `teaching_assistant/__init__.py` lacks `from . import agent`, or `agent.py` defines no `root_agent`. |
 | API key errors locally | `.env` is in the project root instead of `teaching_assistant/`. |
 | Service URL returns 403 before the login prompt | An organization policy is blocking public access (`--allow-unauthenticated`). |
