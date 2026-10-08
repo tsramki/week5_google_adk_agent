@@ -7,9 +7,7 @@ answers follow-up questions.
 Run:  .venv/bin/streamlit run financial_planner_app.py
 """
 
-import asyncio
 import os
-import uuid
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -17,20 +15,19 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), 'financial_planner', '.env'))
 
 from google.adk.runners import InMemoryRunner  # noqa: E402
-from google.genai import types  # noqa: E402
 
+from ui_common import ask, set_page_config  # noqa: E402
 from financial_planner.agent import root_agent  # noqa: E402
 from financial_planner.analysis import analyze  # noqa: E402
 
 APP_NAME = 'financial_planner'
-USER_ID = 'streamlit_user'
 STATUS_STYLE = {
     'good': ('#1b7f4c', '#e3f5ea', 'On track'),
     'watch': ('#9a6700', '#fff4d6', 'Watch'),
     'action': ('#b42318', '#fde4e1', 'Needs action'),
 }
 
-st.set_page_config(page_title='Financial Planner', page_icon='💼', layout='wide')
+set_page_config(page_title='Financial Planner', page_icon='💼', layout='wide')
 st.markdown(
     """
     <style>
@@ -54,28 +51,7 @@ def _runner() -> InMemoryRunner:
 
 
 def _ask(prompt: str) -> str:
-  """Send one user turn to the agent and return its final text."""
-  runner = _runner()
-
-  async def go() -> str:
-    sid = st.session_state.get('adk_session')
-    if sid is None:
-      sid = uuid.uuid4().hex
-      await runner.session_service.create_session(
-          app_name=APP_NAME, user_id=USER_ID, session_id=sid
-      )
-      st.session_state['adk_session'] = sid
-    parts: list[str] = []
-    async for event in runner.run_async(
-        user_id=USER_ID,
-        session_id=sid,
-        new_message=types.Content(role='user', parts=[types.Part(text=prompt)]),
-    ):
-      if event.is_final_response() and event.content and event.content.parts:
-        parts += [p.text for p in event.content.parts if p.text]
-    return '\n'.join(parts) or '_(no response)_'
-
-  return asyncio.run(go())
+  return ask(_runner(), APP_NAME, 'fin_adk_session', prompt)
 
 
 def money(label: str, key: str, help: str | None = None):
@@ -188,16 +164,16 @@ if submitted:
         desired_retirement_spending=desired, life_insurance_coverage=life,
         has_disability_insurance=disability, has_will=will,
     )
-    st.session_state['adk_session'] = None
+    st.session_state['fin_adk_session'] = None
     st.session_state['fin_result'] = analyze(**data)
     st.session_state['fin_name'] = name.strip()
-    st.session_state['chat'] = []
+    st.session_state['fin_chat'] = []
     with st.spinner('Building your plan…'):
       try:
         reply = _ask(_build_prompt(data, {'name': name.strip(), 'goals': goals.strip()}))
       except Exception as e:  # surface credential/model errors in the UI
         reply = f'⚠️ Could not reach the model: `{e}`'
-    st.session_state['chat'].append(('assistant', reply))
+    st.session_state['fin_chat'].append(('assistant', reply))
 
 r = st.session_state.get('fin_result')
 if r:
@@ -249,12 +225,12 @@ if r:
       )
 
   st.subheader('Your plan')
-  for role, text in st.session_state['chat']:
+  for role, text in st.session_state['fin_chat']:
     with st.chat_message(role):
       st.markdown(text)
   follow = st.chat_input('Ask a follow-up (e.g. "What if I retire at 60?" or "How should I pay off my debts?")')
   if follow:
-    st.session_state['chat'].append(('user', follow))
+    st.session_state['fin_chat'].append(('user', follow))
     with st.chat_message('user'):
       st.markdown(follow)
     with st.chat_message('assistant'):
@@ -264,5 +240,5 @@ if r:
         except Exception as e:
           reply = f'⚠️ Could not reach the model: `{e}`'
       st.markdown(reply)
-    st.session_state['chat'].append(('assistant', reply))
+    st.session_state['fin_chat'].append(('assistant', reply))
   st.caption('Disclaimer: This information is for informational and educational purposes only and is not financial, investment, tax, or legal advice. Please consult a qualified financial professional before making any financial decisions.')

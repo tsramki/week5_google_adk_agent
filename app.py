@@ -7,9 +7,7 @@ writes personalized recommendations and answers follow-up questions.
 Run:  .venv/bin/streamlit run app.py
 """
 
-import asyncio
 import os
-import uuid
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -17,13 +15,12 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), 'health_assistant', '.env'))
 
 from google.adk.runners import InMemoryRunner  # noqa: E402
-from google.genai import types  # noqa: E402
 
+from ui_common import ask, set_page_config  # noqa: E402
 from health_assistant.agent import root_agent  # noqa: E402
 from health_assistant.analysis import MARKERS, SEVERITY, analyze  # noqa: E402
 
 APP_NAME = 'health_assistant'
-USER_ID = 'streamlit_user'
 STATUS_STYLE = {
     'normal': ('#1b7f4c', '#e3f5ea', 'In range'),
     'borderline': ('#9a6700', '#fff4d6', 'Borderline'),
@@ -61,7 +58,7 @@ LAB_GROUPS = {
     ],
 }
 
-st.set_page_config(page_title='Health Assistant', page_icon='🩺', layout='wide')
+set_page_config(page_title='Health Assistant', page_icon='🩺', layout='wide')
 st.markdown(
     """
     <style>
@@ -86,28 +83,7 @@ def _runner() -> InMemoryRunner:
 
 
 def _ask(prompt: str) -> str:
-  """Send one user turn to the agent and return its final text."""
-  runner = _runner()
-
-  async def go() -> str:
-    sid = st.session_state.get('adk_session')
-    if sid is None:
-      sid = uuid.uuid4().hex
-      await runner.session_service.create_session(
-          app_name=APP_NAME, user_id=USER_ID, session_id=sid
-      )
-      st.session_state['adk_session'] = sid
-    parts: list[str] = []
-    async for event in runner.run_async(
-        user_id=USER_ID,
-        session_id=sid,
-        new_message=types.Content(role='user', parts=[types.Part(text=prompt)]),
-    ):
-      if event.is_final_response() and event.content and event.content.parts:
-        parts += [p.text for p in event.content.parts if p.text]
-    return '\n'.join(parts) or '_(no response)_'
-
-  return asyncio.run(go())
+  return ask(_runner(), APP_NAME, 'health_adk_session', prompt)
 
 
 def _cards(findings: list[dict]) -> None:
@@ -192,16 +168,16 @@ if submitted:
     profile = dict(name=name.strip(), age=int(age), sex=sex, weight_kg=weight_kg,
                    height_cm=height_cm, meds=meds.strip())
     # Fresh conversation for each new submission.
-    st.session_state['adk_session'] = None
+    st.session_state['health_adk_session'] = None
     st.session_state['result'] = analyze(labs, sex.lower(), weight_kg, height_cm)
     st.session_state['profile'] = profile
-    st.session_state['chat'] = []
+    st.session_state['health_chat'] = []
     with st.spinner('Reviewing your results…'):
       try:
         reply = _ask(_build_prompt(profile, labs))
       except Exception as e:  # surface credential/model errors in the UI
         reply = f'⚠️ Could not reach the model: `{e}`'
-    st.session_state['chat'].append(('assistant', reply))
+    st.session_state['health_chat'].append(('assistant', reply))
 
 # --------------------------------------------------------------- results
 result = st.session_state.get('result')
@@ -230,12 +206,12 @@ if result:
   _cards(result['findings'])
 
   st.subheader('Recommendations')
-  for role, text in st.session_state['chat']:
+  for role, text in st.session_state['health_chat']:
     with st.chat_message(role):
       st.markdown(text)
   follow = st.chat_input('Ask a follow-up (e.g. "Give me a 7-day meal plan for my cholesterol")')
   if follow:
-    st.session_state['chat'].append(('user', follow))
+    st.session_state['health_chat'].append(('user', follow))
     with st.chat_message('user'):
       st.markdown(follow)
     with st.chat_message('assistant'):
@@ -245,5 +221,5 @@ if result:
         except Exception as e:
           reply = f'⚠️ Could not reach the model: `{e}`'
       st.markdown(reply)
-    st.session_state['chat'].append(('assistant', reply))
+    st.session_state['health_chat'].append(('assistant', reply))
   st.caption('Disclaimer: This information is for informational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Please seek advice from a qualified healthcare professional.')

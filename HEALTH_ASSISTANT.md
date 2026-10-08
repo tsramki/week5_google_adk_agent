@@ -25,3 +25,7 @@ app.py            # Streamlit UI: form -> range dashboard -> AI recommendations 
 Credentials: either run `gcloud auth application-default login` with an account that has `roles/aiplatform.user` on the project in `health_assistant/.env`, or put `GOOGLE_API_KEY` in that file (see `.env.example`).
 
 Not a medical device. Reference ranges are general adult values and vary by lab.
+
+## All projects in one UI
+
+`.venv/bin/streamlit run hub.py` opens a launcher with a sidebar to switch between the Teaching Assistant, Health Assistant and Financial Planner front ends.
