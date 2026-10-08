@@ -81,7 +81,7 @@ One service runs the whole hub. It builds from source with the Dockerfile, calls
 
 | Setting | Value |
 |---|---|
-| Project | `gen-lang-client-0928202266` |
+| Project | `<gcp-project>` |
 | Region | `us-west1` |
 | Service name | `agent-hub` |
 | Model location | `global` (set in each agent's `.env`) |
