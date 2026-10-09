@@ -120,7 +120,7 @@ gcloud iam service-accounts enable $SA
 Run from the project root, because `--source .` uploads the current directory:
 
 ```bash
-cd /Users/ramakrishnaseshadri/Documents/agentAI/Week5/google_adk_agent
+cd /src/google_adk_agent
 
 gcloud run deploy agent-hub \
   --source . \
