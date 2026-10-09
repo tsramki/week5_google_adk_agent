@@ -133,14 +133,6 @@ gcloud run deploy agent-hub \
 
 `--allow-unauthenticated` makes the service reachable from the internet; the sign-in page in `hub.py` is the only gate. `--max-instances 2` caps cost. `--session-affinity` keeps a browser on one instance, because Streamlit sessions and the agents' conversations live in that instance's memory.
 
-### Retire the old teaching-assistant service
-
-After `agent-hub` works:
-
-```bash
-gcloud run services delete teaching-assistant --region us-west1
-gcloud secrets delete teaching-assistant-password
-```
 
 ### Verify
 
@@ -167,14 +159,3 @@ gcloud secrets delete agent-hub-password
 
 Sessions are in memory, so they are lost when an instance restarts or scales to zero.
 
-## Troubleshooting
-
-| Symptom | Cause and fix |
-|---|---|
-| `Provided service account (...-compute@developer.gserviceaccount.com) is disabled` during deploy | Re-enable it with `gcloud iam service-accounts enable <SA>`, or create a dedicated service account and pass `--service-account` and `--build-service-account`. |
-| "APP_PASSWORD is not configured; refusing to serve" | The secret is not mounted. Check the `--set-secrets` flag and that the service account has Secret Accessor. |
-| `403 PERMISSION_DENIED ... aiplatform.endpoints.predict` in the chat | The identity running the app lacks `roles/aiplatform.user` (locally, your `gcloud` account; deployed, the service account), or use an AI Studio key locally. |
-| UI loads but stays on "Please wait" / reconnects | WebSockets are blocked or session affinity is off. Check that the deploy used the flags above. |
-| Agent missing from the `adk web` dropdown | The package's `__init__.py` lacks `from . import agent`, or `agent.py` defines no `root_agent`. |
-| API key errors locally | `.env` is in the project root instead of inside the agent's folder. |
-| Service URL returns 403 before the sign-in page | An organization policy is blocking public access (`--allow-unauthenticated`). |
